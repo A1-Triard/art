@@ -1,0 +1,70 @@
+#!/bin/sh
+set -eu
+
+system="$(uname)"
+
+linux_sed_E() {
+    sed -E -i "$@"
+}
+
+bsd_sed_E() {
+    sed -E -i '' -e "$@"
+}
+
+case "$system" in
+Linux)
+    SED=linux_sed_E
+    ;;
+FreeBSD)
+    SED=bsd_sed_E
+    ;;
+*)
+    echo "Unknown system: ${system}."
+    exit 1
+esac
+
+# Markdown
+cp -f text text.md || exit 1
+$SED 's/ +$//' text.md || exit 1
+# shellcheck disable=SC2016
+$SED 's/```/_`_/g' text.md || exit 1
+$SED 's/``/«/g' text.md || exit 1
+# shellcheck disable=SC2016
+$SED 's/_`_/```/g' text.md || exit 1
+$SED "s/''/»/g" text.md || exit 1
+$SED 's/-- /— /g' text.md || exit 1
+$SED 's/ --/ —/g' text.md || exit 1
+$SED 's/([0-9])x([0-9])/\1×\2/g' text.md || exit 1
+$SED 's/\.\.\./…/g' text.md || exit 1
+
+# HTML
+cmark --nobreaks text.md > text.html || exit 1
+
+# OpenNET
+cp -f text.html text.opennet || exit 1
+$SED 's|</p>||g' text.opennet || exit 1
+$SED 's|<p>|\n|g' text.opennet || exit 1
+$SED 's|</h2>||g' text.opennet || exit 1
+$SED 's|<h2>|\n++ |g' text.opennet || exit 1
+$SED 's|<a href="(.*)">(.*)</a>|[[\1 \2]]|g' text.opennet || exit 1
+$SED 's|<pre><code.*>|\n   |' text.opennet || exit 1
+$SED 's|</?code>|`|g' text.opennet || exit 1
+$SED 's/&quot;/"/g' text.opennet || exit 1
+$SED 's/ +$//' text.opennet || exit 1
+
+cat > view.html << "EOF"
+<!doctype html public "-//w3c//dtd html 4.01//en" "http://www.w3.org/tr/html4/strict.dtd">
+<html>
+<head>
+<title>fonts</title>
+</head>
+<body>
+<link href="darkdown.css" rel="stylesheet"></link> 
+EOF
+
+cat text.html >> view.html
+
+cat >> view.html << "EOF"
+</body>
+</html>
+EOF
