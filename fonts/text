@@ -79,7 +79,7 @@ $ python chars_to_uni.py < koi8-u > koi8-u.uni
 
 ```sh
 $ ./configure
-$ make
+$ make # gmake в FreeBSD
 ```
 
 Инсталляция сводится к размещению шрифта в правильном месте.
