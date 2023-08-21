@@ -100,8 +100,8 @@ $ gzip -9 xter-u18b.psf
 ```sh
 $ vtfontcvt -o xter-u18b.fnt ter-u18b.bdf
 # mv xter-u18b.fnt /usr/share/vt/fonts
-# chown root:root /usr/share/vt/fonts/xter-u18b.fnt
-# chmod u=rw,g=r,o=r /usr/share/vt/fonts/xter-u18b.fnt
+# chown root:wheel /usr/share/vt/fonts/xter-u18b.fnt
+# chmod u=r,g=r,o=r /usr/share/vt/fonts/xter-u18b.fnt
 ```
 
 Осталось указать системе использовать наш шрифт.
