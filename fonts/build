@@ -54,6 +54,30 @@ $SED 's|</?code>|`|g' text.opennet || exit 1
 $SED 's/&quot;/"/g' text.opennet || exit 1
 $SED 's/ +$//' text.opennet || exit 1
 
+# LaTeX
+cat > text.tex << "EOF"
+\documentclass[14pt, a4paper]{extarticle}
+\usepackage[utf8]{inputenc}
+\usepackage[russian]{babel}
+\usepackage{indentfirst}
+\usepackage{hyperref}
+\begin{document}
+
+EOF
+pandoc -f markdown -t latex --no-highlight text.md >> text.tex || exit 1
+cat >> text.tex << "EOF"
+
+\end{document}
+EOF
+$SED 's/\\label\{.*\}//' text.tex || exit 1
+$SED 's/\\hypertarget\{.*\}//' text.tex || exit 1
+$SED 's/\{%//' text.tex || exit 1
+$SED 's/\\subsection/\\subsection*/' text.tex || exit 1
+
+# PDF
+pdflatex text.tex > /dev/null || exit 1
+
+# Preview
 cat > view.html << "EOF"
 <!doctype html public "-//w3c//dtd html 4.01//en" "http://www.w3.org/tr/html4/strict.dtd">
 <html>

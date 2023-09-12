@@ -1,3 +1,8 @@
 *.html
 *.md
 *.opennet
+*.aux
+*.log
+*.out
+*.tex
+*.pdf
