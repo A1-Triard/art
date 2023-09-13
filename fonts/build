@@ -77,7 +77,7 @@ $SED 's/\{%//' text.tex || exit 1
 $SED 's/\\subsection/\\subsection*/' text.tex || exit 1
 
 # PDF
-pdflatex text.tex > /dev/null || exit 1
+pdflatex text.tex > /dev/null || exit 2
 
 # Preview
 cat > view.html << "EOF"
