@@ -1,6 +1,8 @@
 #!/bin/sh
 set -eu
 
+cd "$(dirname "$(realpath "$0")")"
+
 system="$(uname)"
 
 linux_sed_E() {
