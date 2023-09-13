@@ -17,6 +17,6 @@ jobs:
       fail-fast: false
     runs-on: ubuntu-latest
     steps:
-    - run: "sudo apt-get install -y cmark"
+    - run: "sudo apt-get install -y cmark pandoc"
     - uses: actions/checkout@v2
     - run: "./fonts/build"
