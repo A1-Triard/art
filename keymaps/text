@@ -1,0 +1,208 @@
+[Разобравшись со шрифтами](https://www.opennet.ru/tips/info/3205.shtml) ([доступен исправленный текст](https://a1-triard.github.io/fonts.html)), то есть с выводом букв, можно переходить к вводу, то есть к настройке клавиатурных раскладок.
+Я опишу как я настраиваю расладку под свой, весьма необычный вкус, но так, чтобы было понятно как действовать в общем случае.
+
+Цель
+----
+
+Особенность моей рабочей конфигурации проистекает из сочетания четырёх факторов: 1) я вимер, 2) я использую тайловый
+оконный менеджер, 3) я не печатаю десятью пальцами, 4) я работаю на ноутбуке и Raspberry Pi 400.
+Долгое время я пользовался модальным переключателем языков и тому было несколько
+причин: 1) я не умел настраивать немодальные переключатели в терминале, 2) я не мог найти подходящих клавиш для
+немодальных переключателей в принципе на клавиатуре, 3) когда у меня всё-таки появлялась идея, оказывалось что
+`xkb` не предоставляет такой опции, 4) неудобство модального переключателя казалось мне преувеличенным,
+5) неудобство переключения сочетанием двух клавиш было явным. Но в какой-то момент все препятствия оказались позади.
+С тех пор моя клавиатура выглядит следующим образом.
+
+Переключение языков у меня осуществляется клавишими `F11`/`F12` на ноуте и `F10`/`Num Lock` на малинке.
+Десятипальцевикам вряд ли будет удобно, но я не десятипальцевик, а в нижнем ряду просто нет свободных клавиш.
+`Win` я использую для менеджмента окон. Правый `Alt` -- временная смена раскладки. `Escape` у меня на месте `Caps Lock`.
+Я знаю, что многие вимеры предпочитают иметь в этом месте `Control`, а `Escape` получают нажимая `Control + [`.
+Может быть я тоже перейду когда-нибудь на такой вариант, но пока мне удобно с контролом в обычном месте (и дублируюшим
+правым контролом). В Иксах кроме того задействованы `Print Screen` -- на неё традиционно повешен `Compose` -- и `Insert`
+(последняя ``свободная'' клавиша на моей 80-клавишной клавиатуре) —— на ней ``3rd level'' (а на малинке ввиду отсутствия `Insert`
+пришлось пожертвовать `Delete`). Кстати, в терминале
+`Print Screen` -- это тоже традиционно `Compose`, но в Линуксе толку от него там ноль из-за ограничения 256 символами.
+
+Как несложно догадаться, раскладку придётся настроить дважды: для терминала и для Иксов по-отдельности. Начнём с
+терминала.
+
+Раскладка в терминале
+---------------------
+
+Чтобы получить описанную выше ситуацию, надо сделать кастомный `.kbd`/`.map` файл. В линуксах они лежат в
+`/usr/share/kbd/keymaps/i386/qwerty` (это практически наверняка то, что вам нужно, даже если у вас не i386, как у меня в
+случае Raspberry Pi). В FreeBSD -- в `/usr/share/vt/keymaps`. Форматы схожи, но не идентичны. За основу берём
+`ru.win.kbd` в FreeBSD и соответсвующий ему `ruwin_ct_sh-UTF-8.map.gz` в Linux (эти файлы одинаковы или почти одинаковы во всех
+дистрибутивах, поскольку происходят из глубокой древности):
+
+```sh
+$ cp /usr/share/vt/keymaps/ru.win.kbd ./ru.local.kbd
+```
+
+```sh
+$ cp /usr/share/kbd/keymaps/i386/qwerty/ruwin_ct_sh-UTF-8.map.gz ./ru_local-UTF-8.map.gz
+```
+
+Разжимаем, если сжато:
+
+```sh
+$ gzip -d ru_local-UTF-8.map.gz
+```
+
+Первым делом меняем переключатель языка на желаемый. Смотрим в строчки
+
+```
+029   lctrl  alock  lctrl  lctrl  lctrl  lctrl  lctrl  lctrl   O
+...
+042   lshift lshift alock  lshift lshift lshift lshift lshift  O
+...
+054   rshift rshift alock  rshift rshift rshift rshift rshift  O
+...
+090   rctrl  alock  rctrl  rctrl  rctrl  rctrl  rctrl  rctrl   O
+...
+157   lctrl  alock  lctrl  lctrl  lctrl  lctrl  lctrl  lctrl   O
+...
+170   lshift lshift alock  lshift lshift lshift lshift lshift  O
+...
+182   rshift rshift alock  rshift rshift rshift rshift rshift  O
+...
+218   rctrl  alock  rctrl  rctrl  rctrl  rctrl  rctrl  rctrl   O
+```
+
+в `.kbd` файле или соответствующие две группы по три строчки в `.map` файле:
+
+```
+                keycode  42 =   Shift	
+        control keycode  42 =   AltGr_Lock
+altgr   control keycode  42 =   AltGr_Lock
+...
+                keycode  54 =   Shift
+        control keycode  54 =   AltGr_Lock
+altgr   control keycode  54 =   AltGr_Lock
+```
+
+и понимаем, что переключение раскладки обозначается `alock`/`AltGr_Lock`.
+
+Также можно понять как обозначаются альтернативные раскладки: в `.kbd` клавиши альтернативной раскладки имеют
+номера, увеличенные на 128 (так, `Shift` в русской раскладке -- это клавиша номер 42 + 128 = 170),
+а в `.map` альтернативная раскладка маркируется модификатором `altgr`.
+
+Убираем переключение, для чего в линуксах стираем вторую и третью строчки в обоих группах,
+а в FreeBSD меняем `alock` на `lshift`/`lctrl`/`rshift`/`rctrl` во всех восьми строках.
+
+Вписываем переключение на русский. В Linux было
+
+```
+                        keycode  88 =   F12     F12     F12     F12
+```
+
+стало
+
+```
+                        keycode  88 =   AltGr_Lock F12 VoidSymbol F12
+```
+
+В FreeBSD было
+
+```
+088   fkey12 fkey24 fkey36 fkey48 scr12  scr12  scr12  scr12   O
+...
+216   fkey12 fkey24 fkey36 fkey48 scr12  scr12  scr12  scr12   O
+```
+
+стало
+
+```
+088   alock  fkey12 fkey36 fkey48 scr12  scr12  scr12  scr12   O
+...
+216   nop    fkey12 fkey36 fkey48 scr12  scr12  scr12  scr12   O
+```
+
+Вписываем переключение на английский. В Linux было
+
+```
+                        keycode  87 =   F11     F11     F11     F11
+```
+
+стало
+
+```
+                        keycode  87 =   VoidSymbol F11 AltGr_Lock F11
+```
+
+В FreeBSD было
+
+```
+087   fkey11 fkey23 fkey35 fkey47 scr11  scr11  scr11  scr11   O
+...
+215   fkey11 fkey23 fkey35 fkey47 scr11  scr11  scr11  scr11   O
+```
+
+стало
+
+```
+087   nop    fkey11 fkey35 fkey47 scr11  scr11  scr11  scr11   O
+...
+215   alock  fkey11 fkey35 fkey47 scr11  scr11  scr11  scr11   O
+```
+
+Для других вариантов переключения всё абсолютно аналогично. Например, для FreeBSD и `F10`/`Num Lock` меняем
+
+```
+068   fkey10 fkey22 fkey34 fkey46 scr10  scr10  scr10  scr10   O
+069   nlock  nlock  nlock  nlock  nlock  nlock  nlock  nlock   O
+...
+196   fkey10 fkey22 fkey34 fkey46 scr10  scr10  scr10  scr10   O
+197   nlock  nlock  nlock  nlock  nlock  nlock  nlock  nlock   O
+```
+
+на
+
+```
+068   nop    fkey10 fkey34 fkey46 scr10  scr10  scr10  scr10   O
+069   alock  nlock  nlock  nlock  nlock  nlock  nlock  nlock   O
+...
+196   alock  fkey10 fkey34 fkey46 scr10  scr10  scr10  scr10   O
+197   nop    nlock  nlock  nlock  nlock  nlock  nlock  nlock   O
+```
+
+Поменять `Caps Lock` на `Escape` тоже просто. В Linux
+
+```
+                keycode  58 =   Caps_Lock
+```
+
+меняем на
+
+```
+                keycode  58 =   Escape
+altgr           keycode  58 =   Escape
+        shift   keycode  58 =   Caps_Lock
+altgr   shift   keycode  58 =   Caps_Lock
+```
+
+В FreeBSD
+
+```
+058   clock  clock  clock  clock  clock  clock  clock  clock   O
+...
+186   clock  clock  clock  clock  clock  clock  clock  clock   O
+```
+
+на
+
+```
+058   esc    clock  clock  clock  clock  clock  clock  clock   O
+...
+186   esc    clock  clock  clock  clock  clock  clock  clock   O
+```
+
+Осталось указать системе использовать нашу раскладку.
+
+В FreeBSD это делается с помощью настройки `allscreens_kbdflags` в `/etc/rc.conf`:
+
+```
+allscreens_kbdflags="-l ru.local"
+```
+
+Продолжение следует...

@@ -55,7 +55,7 @@ for line in fileinput.input():
 
 Далее всё просто. Конвертируем:
 
-```sh
+```
 $ python uni_to_chars.py < koi8-u.uni > koi8-u
 ```
 
@@ -72,13 +72,13 @@ $ python uni_to_chars.py < koi8-u.uni > koi8-u
 
 Конвертируем карту обратно:
 
-```sh
+```
 $ python chars_to_uni.py < koi8-u > koi8-u.uni
 ```
 
 Выбрав и отредактировав шрифт и карту символов, переходим к сборке:
 
-```sh
+```
 $ ./configure
 $ make # gmake в FreeBSD
 ```
@@ -87,7 +87,7 @@ $ make # gmake в FreeBSD
 
 В линуксах читаем `man setfont`, используем `.psf` файл:
 
-```sh
+```
 $ cp ter-u18b.psf xter-u18b.psf
 $ gzip -9 xter-u18b.psf
 # mv xter-u18b.psf.gz /usr/share/kbd/consolefonts
@@ -98,7 +98,7 @@ $ gzip -9 xter-u18b.psf
 В FreeBSD читаем `man vt` и раздел ``Virtual Consoles and Terminals'' в Hanbook,
 и превращаем `.bdf` в `.fnt` с помощью `vtfontcvt`:
 
-```sh
+```
 $ vtfontcvt -o xter-u18b.fnt ter-u18b.bdf
 # mv xter-u18b.fnt /usr/share/vt/fonts
 # chown root:wheel /usr/share/vt/fonts/xter-u18b.fnt
@@ -146,7 +146,7 @@ consolefont="xter-u18b"
 
 1. Шрифт в `.pf2` формате кладётся в `/boot/grub/fonts`:
 
-   ```sh
+   ```
    $ grub-mkfont -o xter-u18b.pf2 ter-u18b.bdf
    # mv xter-u18b.pf2 /boot/grub/fonts
    ```
@@ -159,7 +159,7 @@ consolefont="xter-u18b"
 
 3. Регенерируется реальный конфиг груба:
 
-   ```sh
+   ```
    # grub-mkconfig -o /boot/grub/grub.cfg
    ```
 
@@ -174,7 +174,7 @@ consolefont="xter-u18b"
 Современные иксовые приложения не особенно любят растровые шрифты, особенно в ``традиционном''
 формате `.pcf`, поэтому необходимо использовать более ``модный'' `.otb`. Конвертация проста:
 
-```sh
+```
 $ fonttosfnt -o xter-u18b.otb ter-u18b.bdf
 ```
 
@@ -209,7 +209,7 @@ $ fonttosfnt -o xter-u18b.otb ter-u18b.bdf
 [сохранил](https://github.com/A1-Triard/XTerminus/blob/master/uni/ibm-808)
 готовую карту для 808 страницы, нужно только её преобразовать в `.uni` всё тем же скриптом:
 
-```sh
+```
 $ python chars_to_uni.py < ibm-808 > ibm-808.uni
 ```
 
@@ -247,7 +247,7 @@ rm -f ts16_808.bdf
 
 Кастомные шрифты надо закинуть в папку русификатора. Далее в досбоксе запускаем конфигуратор:
 
-```sh
+```
 CD C:\KEYRUS
 SETUP
 ```
