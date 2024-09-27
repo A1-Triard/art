@@ -1,0 +1,604 @@
+Начинаем с установки rust. Даже если он есть системный из пакетов, его
+недостаточно,  так  как  мы  будем  (вынужденно)  использовать nightly
+версию. Итак, идём на https://rustup.rs/, копируем предлагаемую строку
+и   запускаем  её  в  терминале.  Чтобы  команда  заработала  возможно
+потребуется доустановить `curl`.  Имеет смысл выбрать в качестве ветки
+по-умолчанию `nightly`.  Если вы выбрали не `nightly`,  то нужно будет
+доустановить `nightly` тулчейн:
+
+```sh
+$ rustup toolchain install nightly-x86_64-unknown-linux-gnu
+```
+
+Создадим новый проект приложения:
+
+```sh
+$ cargo new --bin hellodos
+```
+
+Название проекта выбрано с учётом  того,  что  целевая  система  имеет
+ограничения на формат имён файлов. Проще говоря, больше 8 букв нельзя.
+
+Проверим, что всё работает:
+
+```sh
+$ cd hellodos
+$ cargo run
+   Compiling hellodos v0.1.0 (/home/main/hellodos)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.74s
+     Running `target/debug/hellodos`
+Hello, world!
+```
+
+Если команда ругается на отсутствие  линкера  `cc`,  нужно  установить
+`gcc`.  Но  можно и не ставить,  а просто пропустить этот этап и сразу
+перейти к дальнейшему.
+
+Итак, начало  положено.  Но  это  приложение  нативное,  а  нам  нужно
+приложение  для  DOS.  Но  DOS  довольно  далеко  от  Linux  (UNIX)  и
+преодолеть этот разрыв одним махом не получится,  нужна  промежуточная
+кочка.  А  что  находится  между  Linux и DOS?  Windows!  Поэтому цель
+следующей итерации --  получить  Windows-приложение.  Нам  потребуется
+Wine,  причём  не  только  для  проверки результата,  но и для запуска
+windows-линковщика. Вообще-то можно  было  бы  использовать  линковщик
+GNU -- он поддерживает кросс-компиляцию и  в принципе таким путём тоже
+можно  получать  DOS-программы,  но  я   опишу   способ   с   нативным
+линковщиком,  так  как  считаю  его  наиболее простым,  благо основную
+работу за нас уже сделали.  Итак устанавливаем  `wine`,  устанавливаем
+32-битный `wine`, и качаем с гитхаба нужный проект:
+
+```sh
+$ cd
+$ git clone --depth=1 https://github.com/est31/msvc-wine-rust.git
+$ mv {,.}msvc-wine-rust
+```
+
+Я сделал  папку  скрытой  чтобы она не мозолила глаза в дальнейшем.  В
+принципе путь может быть  любым,  например  можно  с  тем  же  успехом
+засунуть её куда-нибудь в `~/.local`.
+
+```sh
+$ cd .msvc-wine-rust
+$ ./get.sh licenses-accepted
+```
+
+Начнётся скачивание и распаковка нужных  нам  запчастей  от  Microsoft
+Visual  Studio.  Возможно  потребуется  установить  несколько  утилит:
+`wget`,  разные распаковщики,  в том числе средства для работы с `msi`
+файлами.  Доустанавливайте нужное и перезапускайте команду.  Вы можете
+также получить ошибку вот такого вида:
+
+```
+caution: filename not matched:  Contents/*
+```
+
+Это значит у вас кривой `unzip`. Найдите в `get.sh` строку, вызывающую
+проблемы:
+
+```
+        unzip $f 'Contents/*' -d $1
+```
+
+и удалите из неё `'Contents/*'`.  Распакуется немножко мусора,  но всё
+будет работать.
+
+После успешного  завершения  нужно  сделать  кое-какие   косметические
+исправления (я создал issue чтобы автор включил это в скрипт, но автор
+видимо на  проект  подзабил).  Во-первых,  на  тот  маловероятный,  но
+возможный   случай,   если   вы   работаете   в   голой  консоли,  без
+иксов/вяленого (но имейте в виду, что дальше нам так и так понадобится
+графическое  окружение  для запуска dosbox),  нужно запускать линковку
+из-под безголового икс-сервера.  Он называется `xvfb`, установите его,
+если  он  у вас не установлен и отредактируйте корневые скрипты руками
+или с помощью `sed`:
+
+```sh
+$ sed -i 's|\\./linker\\.sh|xvfb-run ./linker.sh|' linker-scripts/linkx64.sh
+$ sed -i 's|\\./linker\\.sh|xvfb-run ./linker.sh|' linker-scripts/linkx86.sh
+```
+
+Во-вторых, надо  скопировать некоторые файлики чтобы линкер не ругался
+на их отсутствие:
+
+```sh
+$ cd extracted/tools/VC/Tools/MSVC/14.11.25503/bin/Hostx64/x64
+$ cp msobj140.dll mspdbcore.dll ../x86
+$ cd -
+$ cd extracted/tools/VC/Tools/MSVC/14.11.25503/bin/Hostx86/x86
+$ cp mspdb140.dll msobj140.dll mspdbcore.dll mspdbsrv.exe ../x64
+```
+
+Теперь линкер  будет  работать,  осталось  сообщить  `cargo`  как  его
+вызвать.   Для  этого  создаём  `~/.cargo/config.toml`  со   следующим
+содержимым:
+
+```
+[target.i686-pc-windows-msvc]
+linker="/home/<username>/.msvc-wine-rust/linker-scripts/linkx86.sh"
+
+[target.x86_64-pc-windows-msvc]
+linker="/home/<username>/.msvc-wine-rust/linker-scripts/linkx64.sh"
+```
+
+Попробуем собрать наш проект под windows следующей командой:
+
+```sh
+$ cargo +nightly build --target i686-pc-windows-msvc --release
+```
+
+Получим ошибку
+
+```
+error[E0463]: can't find crate for `std`
+  |
+  = note: the `i686-pc-windows-msvc` target may not be installed
+  = help: consider downloading the target with `rustup target add i686-pc-windows-msvc`
+  = help: consider building the standard library from source with `cargo build -Zbuild-std`
+```
+
+К варианту со сборкой стандартной библиотеки мы ещё вернёмся,  а  пока
+просто доустновим нужный target предложенной командой:
+
+```sh
+$ rustup +nightly target add i686-pc-windows-msvc
+```
+
+Теперь сборка  проходит  без ошибок.  Если сборка подвиснет или выдаст
+связанные с `wine`  ошибки,  попробуйте  переинициализировать  префикс
+`wine`:
+
+```sh
+$ rm -rf ~/.wine
+$ wineboot --init
+```
+
+На выходе мы получаем `hellodos.exe`, который можем запустить:
+
+```sh
+$ wine target/i686-pc-windows-msvc/release/hellodos.exe 
+Hello, world!
+```
+
+Пришёл черёд  отказаться  от стандартной библиотеки -- ведь для DOS её
+нет. Добавим соответствующий атрибут в `src/main.rs`:
+
+```rust
+#![no_std]
+```
+
+Теперь нам больше не доступна обычная точка входа `fn main()`  с  Rust
+интерфейсом  и  мы  должны  откатиться до использования сишной `main`.
+Делается это так:
+
+```rust
+#![feature(start)]
+
+#![no_std]
+
+#[start]
+fn main(_: isize, _: *const *const u8) -> isize {
+    0
+}
+```
+
+Мы  могли  бы  печатать  ``Hello, world!''  обратившись к `printf` или
+ `puts`  из  стандартной  библиотеки C, но большого смысла в этом нет:
+для  DOS  у  нас  нет  не  только  стандартной  библиотеки  Rust, но и
+стандартной библиотеки C, так что примем что задача нашей программы  в
+данный  момент  --  всего  лишь  корректно  завершаться,  возвращая ОС
+нулевой код возврата.
+
+Пробуем собрать:
+
+```sh
+$ cargo +nightly build --target i686-pc-windows-msvc --release
+   Compiling hellodos v0.1.0 (/home/main/hellodos)
+error: `#[panic_handler]` function required, but not found
+
+error: unwinding panics are not supported without std
+  |
+  = help: using nightly cargo, use -Zbuild-std with panic="abort" to avoid unwinding
+  = note: since the core library is usually precompiled with panic="unwind",
+    rebuilding your crate with panic="abort" may not be enough to fix the problem
+
+error: could not compile `hellodos` (bin "hellodos") due to 2 previous errors
+```
+
+Нам сообщают что раскрутка паники не поддерживается в `no_std`  режиме
+и её следует отключить. Это делается в `Cargo.toml`:
+
+```
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
+```
+
+Заодно можно   настроить   сборку   в  релизе  на  минимальный  размер
+получаемого файла. Получится
+
+```
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "z"
+panic = "abort"
+strip = true
+```
+
+Ещё нужен обработчик паники. Пока сделаем его простейшим из возможных:
+
+```rust
+#[panic_handler]
+fn panic_handler(_info: &core::panic::PanicInfo) -> ! { loop { } }
+```
+
+Теперь, с обработчиком паники и `panic="abort"` всё собирается.
+
+Теперь возникает такой вопрос.  В резльтате сборки  линкером  MSVC  мы
+получаем  на  выходе  PE  MZ  файл.  Как  же превратить его в обычный,
+досовский  MZ  файл?  Для  этого  (хотя  не  только  для  этого)   нам
+потребуется _расширитель DOS_ [HX](https://www.japheth.de/HX.html). Он
+включает в свой состав `DPMILD32.EXE`,  который  будучи  запущенным  в
+DOS,  то  есть  в 16-ричном режиме,  переключает процессор в 32-битный
+защищённый режим  и  загружает  переданный  PE  MZ  файл,  после  чего
+передаёт ему выполнение. Это уже почти то что нужно. Почти, потому что
+хотелось бы,  чтобы можно было запустить наш файл  напрямую,  и  этого
+можно добиться.  Дело в том, что любой PE MZ файл является валидным MZ
+файлом и содержит в себе небольшую программу, которая будет вызываться
+если  кто-то попытается запустить его как обычный MZ файл.  Обычно эта
+программка просто выводит сообщение,  что данный файл предназначен для
+работы    в   Windows   и   завершается.   Но   можно   заменить   эту
+программу-заглушку   своей.   Например    такой,    которая    вызовет
+`DPMILD32.EXE`.  Такая  программка  есть в составе `HX` в виде файлика
+`DPMIST32.BIN`.  Там же есть и программа-патчер `PESTUB.EXE`,  которая
+умеет прошивать 16-битные заглушки в PE MZ файлы.
+
+С тем экзешником,  что есть у нас сейчас есть проблема:  он зависит от
+сишной библиотеки.  Чтобы  отвязать  его,  сделаем  кастомный  таргет.
+Описание  кастомного  таргета  -- это специальный json файл.  Начнём с
+существующего  таргета  `i686-pc-windows-msvc`  и  превратим   его   в
+`i386-pc-dos-msvc`:
+
+```sh
+$ rustc +nightly -Z unstable-options \
+      --target=i686-pc-windows-msvc \
+      --print target-spec-json > i386-pc-dos-msvc.json
+```
+
+Открываем полученный файлик и правим:
+- `"cpu": "pentium4"` меняем на `"cpu": "i386"`,
+- `"is-builtin": true` меняем на `"is-builtin": false`,
+- `"llvm-target": "i686-pc-windows-msvc"`
+  меняем на
+  `"llvm-target": "i386-pc-windows-msvc"`,
+- `"metadata"` удаляем,
+- `"no-default-libraries": false`
+  меняем на
+  `"no-default-libraries": true`,
+- `"os": "windows"` меняем на `"os": "dos"`,
+- в `"pre-link-args"` дописываем везде аргумент `"/NODEFAULTLIB"`.
+
+Также надо прописать линковщик для нового таргета в уже  знакомом  нам
+`~/.cargo/config.toml`:
+
+```
+[target.i386-pc-dos-msvc]
+linker="/home/main/.msvc-wine-rust/linker-scripts/linkx86.sh"
+```
+
+Теперь нам уже недоступна не  только  растовская  точка  входа,  но  и
+сишная. Поэтому переходим на более низкоуровневый интерфейс:
+
+```rust
+#![feature(extern_types)]
+
+#![no_std]
+#![no_main]
+#![windows_subsystem="windows"]
+
+#[panic_handler]
+fn panic_handler(_info: &core::panic::PanicInfo) -> ! { loop { } }
+
+extern {
+    type PEB;
+}
+
+#[allow(non_snake_case)]
+#[no_mangle]
+extern "stdcall" fn mainCRTStartup(_: *const PEB) -> u64 {
+    0
+}
+```
+
+Атрибут `#![windows_subsystem="windows"]`  нужен,  чтобы   сгенировать
+параметр `/ENTRY` при вызове линкера. Собирается это так:
+
+```sh
+$ cargo +nightly build -Z build-std=core,panic_abort \
+      --target i386-pc-dos-msvc.json --release
+```
+
+но первый  вызов  скорее  всего  будет  неудачным с ошибкой отсутствия
+исходников  `core`  библиотеки  (в  отличие  от  `std`,  `core`   есть
+необходимая  часть  языка,  продолжение компилятора),  и,  как и почти
+всегда в Rust,  необходимая  для  устранения  этой  проблемы  команада
+содержится в сообщении об ошибке. Выполним её:
+
+```sh
+$ rustup component add rust-src \
+      --toolchain nightly-x86_64-unknown-linux-gnu
+```
+
+Теперь наша программа должна собраться без проблем.
+
+Писать одну  и  ту  же  длинную команду сборки каждый раз утомительно,
+поэтому давайте сделаем скрипт для сборки.  А ещё лучше `Makefile`  --
+это  как  раз  задача  для  него.  Пишем `Makefile` (не забудьте,  что
+отступы надо обязательно делать табом, а не пробелами):
+
+```
+DOS_JSON_TARGET=i386-pc-dos-msvc
+DOS_TARGET=i386-pc-dos-hxrt
+
+BIN=hellodos
+
+SRC=\
+    Cargo.toml Cargo.lock src/main.rs
+
+.PHONY: dosdebug dosrelease dosrund dosrunr clean
+
+dosrelease: target/$(DOS_TARGET)/release/$(BIN).exe \
+        target/$(DOS_TARGET)/release/HDPMI32.EXE \
+        target/$(DOS_TARGET)/release/DPMILD32.EXE
+
+dosdebug: target/$(DOS_TARGET)/debug/$(BIN).exe \
+        target/$(DOS_TARGET)/debug/HDPMI32.EXE \
+        target/$(DOS_TARGET)/debug/DPMILD32.EXE
+
+dosrund: dosdebug
+    dosbox target/$(DOS_TARGET)/debug/$(BIN).exe
+
+dosrunr: dosrelease
+    dosbox target/$(DOS_TARGET)/release/$(BIN).exe
+
+clean:
+    $(RM) -r HXRT216
+    $(RM) -r target
+
+target/$(DOS_TARGET)/%/$(BIN).exe: \
+        target/$(DOS_JSON_TARGET)/%/$(BIN).exe \
+        HXRT216/BIN/PESTUB.EXE \
+        HXRT216/BIN/DPMIST32.BIN
+    mkdir -p target/$(DOS_TARGET)/$*
+    cp -f target/$(DOS_JSON_TARGET)/$*/$(BIN).exe \
+        target/$(DOS_TARGET)/$*/$(BIN).exe
+    wine HXRT216/BIN/PESTUB.EXE -v -n -x -s \
+        target/$(DOS_TARGET)/$*/$(BIN).exe HXRT216/BIN/DPMIST32.BIN
+    touch target/$(DOS_TARGET)/$*/$(BIN).exe
+    
+target/$(DOS_TARGET)/%/HDPMI32.EXE: HXRT216/BIN/HDPMI32.EXE
+    mkdir -p target/$(DOS_TARGET)/$*
+    cp -f HXRT216/BIN/HDPMI32.EXE target/$(DOS_TARGET)/$*/HDPMI32.EXE
+
+target/$(DOS_TARGET)/%/DPMILD32.EXE: HXRT216/BIN/DPMILD32.EXE
+    mkdir -p target/$(DOS_TARGET)/$*
+    cp -f HXRT216/BIN/DPMILD32.EXE target/$(DOS_TARGET)/$*/DPMILD32.EXE
+
+HXRT216/BIN/HDPMI32.EXE HXRT216/BIN/DPMILD32.EXE \
+        HXRT216/BIN/PESTUB.EXE HXRT216/BIN/DPMIST32.BIN: HXRT216.zip
+    $(RM) -r HXRT216
+    mkdir HXRT216
+    unzip -d HXRT216 HXRT216.zip
+
+HXRT216.zip:
+    wget -4 https://www.japheth.de/Download/HX/HXRT216.zip
+    touch -t 200801011952 HXRT216.zip
+
+target/$(DOS_JSON_TARGET)/debug/$(BIN).exe: $(SRC)
+    cargo +nightly build \
+        --verbose -Z build-std=alloc,core,panic_abort \
+	--target $(DOS_JSON_TARGET).json
+
+target/$(DOS_JSON_TARGET)/release/$(BIN).exe: $(SRC)
+    cargo +nightly build \
+        --verbose -Z build-std=alloc,core,panic_abort \
+	-Z build-std-features=panic_immediate_abort \
+        --target $(DOS_JSON_TARGET).json --release
+
+Cargo.lock: Cargo.toml
+    cargo update
+    touch Cargo.lock
+```
+
+Несколько пояснений к данному `Makefile`.
+
+Сборка   состоит    из    двух    этапов.    Целью    первого    этапа
+является    директория    `target/i386-pc-windows-msvc/release`    или
+`target/i386-pc-windows-msvc/debug`. Этот этап подробно разобран выше.
+Единственное    новшество    (не считая    `--verbose`   с   очевидным
+назначением)       --        это        дополнительный        аргумент
+`-Z build-std-features=panic_immediate_abort` в релизе. Так же,  как и
+настройки  в  `Cargo.toml`,  он   служит   для   минимизации   размера
+приложения.  Достигается  это  тем,  что паника не вызывает обработчик
+`panic_handler`,  а немедленно убивает приложение,  вставляя  в  поток
+выполнения   некорректную   процессорную   инструкцию.   В   случае  с
+приложением DOS вместе с приложением убъётся и система, но это хорошо:
+дело в том,  что в любом более-менее реальном приложении переопредлены
+обработчики прерываний.  Если  выйти  в  DOS,  не  вернув  стандартные
+обработчики  на  место  -- а вернуть их при панике некому,  то система
+окажется в нестабильном состоянии и скорее  всего  всё  равно  упадёт,
+когда  следующее  запущенное приложение перезапишет области памяти,  в
+которых находятся перекрытые обработчики прерываний.  Так что  уронить
+систему   сразу   --  лучшее  что  может  сделать  DOS-приложение  при
+возникновении ошибки не подлежащей исправлению.
+
+Цель второго             сборочного              этапа              --     
+директория         `target/i386-pc-windows-hxrt/release`           или
+`target/i386-pc-windows-hxrt/debug`,  в   которой   должен   в   итоге
+оказаться  готовый  к  запуску  экзешник  с  необходимыми компонентами
+расширителя  HX.  Необходимых  компонентов  в  нашем  случае  два   --
+загрузчик  `DPMILD32.EXE`  и  сервер  `HDPMI32.EXE`.  О роли сервера я
+подробнее расскажу  далее,  когда  мы  будем  делать  чтобы  программа
+печатала  на  экране  строку.  Кроме  этого,  необходимо прошить в наш
+экзешник вызов `DPMILD32.EXE`,  что делается вызовом Windows программы
+`PESTUB.EXE`.
+
+Теперь наконец можно собрать и запустить нашу первую DOS-программу:
+
+```sh
+$ make dosrunr
+```
+
+Откроется окно DOSBox'а, в котором мы увидим:
+
+```
+C:\HELLODOS.EXE
+DPMILD32: Module=hxguihlp.dll
+DPMILD32: File not found error
+
+C:\>
+```
+
+Ошибка, которую  выдаёт  `DPMILD32`  некритична и не мешает исполнению
+программы.  Как её убрать мы расберёмся чуть позже,  а пока наконец-то
+займёмся кодированием под DOS.
+
+Для начала, для пробы пера, давайте заимпруим выход из нашей программы.
+Сейчас  мы  просто  возвращаем  управление  загрузчику,  но  вообще-то
+DOS-программы так не делают.  Вообще-то для завершения программы в DOS
+API предусмотрен специальный вызов.  Обращение к DOS API  производится
+через   прерывание   с   шестнадцатеричным  кодом  21.  Номер  функции
+передаётся в регистре `AH`.  Завершение программы и возврат в  DOS  --
+это  функция  номер 4C.  Код возврата передаётся в регистре `AL`.  Для
+вызова прерывания нам понадобится использовать  ассемблерную  вставку.
+Ассемблерные вставки  --  это  unsafe  код,  но  unsafe  тут не потому
+что можно ненароком угодить в undefined behaior, наоборот ассемблерная
+вставка  --  это  самый  твёрдо  defined behavior который только может
+быть:  всё что вы напишите окажется в конечном экзешнике.  Нет, unsafe
+тут   просто  чтобы  напомнить,  что  надо  быть  осторожным  и  можно
+что-нибудь сломать.  Например,  если загрузить  в  сегментный  регистр
+какой-нибудь  мусор,  то  ничего  хорошего  ждать не стоит.  Вот чтобы
+помнить,  что  есть  такие  способы  сломать  программу,  ассемблерные
+вставки требуют оформления как unsafe кода.
+
+Завернём требуемую ассемблерную вставку в  удобную  для  использования
+функцию:
+
+```rust
+use core::arch::asm;
+
+#[allow(non_snake_case)]
+#[inline]
+fn int_21h_ah_4Ch_exit(al_exit_code: u8) {
+    unsafe {
+        asm!(
+            "int 0x21",
+            in("ax") 0x4C00u16 | al_exit_code as u16,
+        );
+    }
+}
+```
+
+Вы можете заметить, что я не стал использовать отдельно `ah` и `al` регистры, хотя вроде бы мог. Но именно что вроде бы. Поддержка этих регистров в настоящее время забагована и пользоваться ими поэтому не рекомендуется.
+
+Теперь мы можем правильно завершить нашу программу:
+
+```rust
+#[allow(non_snake_case)]
+#[no_mangle]
+extern "stdcall" fn mainCRTStartup(_: *const PEB) -> u64 {
+    int_21h_ah_4Ch_exit(0);
+    0
+}
+```
+
+Но позвольте -- скажите вы -- мы ведь находимся в 32-битном защищённом режиме, а прерывание DOS должно быть выполнено в реальном 16-битном режиме. Вот тут и вступает в дело сервер `HDPMI.EXE`. Загружает его всё тот же загрузчик -- `DPMILD32.EXE`. И при загрузке сервер подменяет некоторые прерывания, в том числе и 21h, обёртками, которые 
+
+Для того,  чтобы печатать на экран мы воспользуемся  функцией  DOS  за
+номером  02.  Это  очень  простая  функция,  которая  выводит на экран
+переданный символ. Символ передаётся в регистре `DL`. Завернём вызов в
+функцию:
+
+```rust
+#[inline]
+fn int_21h_ah_02h_out_ch(dl_ch: u8) {
+    unsafe {
+        asm!(
+            "int 0x21",
+            in("ax") 0x0200u16,
+            in("dx") dl_ch as u16,
+        );
+    }
+}
+```
+
+Теперь мы можем написать реализацию  трейта  `core::fmt::Write`  чтобы
+иметь  возможность  использовать стандартный механизм форматированного
+вывода -- макросы `write!` и `writeln!`. Это очень просто, надо только
+помнить, что в DOS правильный перевод строки -- это два символа `\r` и
+`\n` один за другим:
+
+```rust
+use core::fmt::{self, Write};
+
+struct DosWriter;
+
+impl fmt::Write for DosWriter {
+    fn write_char(&mut self, c: char) -> fmt::Result {
+        let c = c as u32;
+        let c = if c > 0x7F || c == '\r' as u32 {
+            b'?'
+        } else {
+            c as u8
+        };
+        if c == b'\n' {
+            int_21h_ah_02h_out_ch(b'\r');
+        }
+        int_21h_ah_02h_out_ch(c);
+        Ok(())
+    }
+
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        for c in s.chars() {
+            self.write_char(c)?;
+        }
+        Ok(())
+    }
+}
+```
+
+Хитрость, скрытая  в  трейте fmt::Write,  в том,  что он предоставляет
+метод `write_fmt`,  используя который можно печатать не только строки,
+но  и  любой  объект,  реализующий трейт `Display`.  Но мы ограничемся
+простой,  но гордой -- после всего что пришлось сделать, чтобы увидеть
+её на экране -- строкой:
+
+```rust
+#[allow(non_snake_case)]
+#[no_mangle]
+extern "stdcall" fn mainCRTStartup(_: *const PEB) -> u64 {
+    writeln!(DosWriter, "Hello, DOS!").unwrap();
+    int_21h_ah_4Ch_exit(0);
+    0
+}
+```
+
+Вызов `unwrap`  тут совершенно уместен,  так как `DosWriter` не выдаёт
+ошибок.  Нам осталось одно,  последнее действие:  избавиться от ошибки,
+выдаваемой `DPMILD32`.
+
+#![feature(start)]
+
+#![no_std]
+
+
+#[no_mangle]
+extern "C" fn rust_eh_personality() { }
+
+#[start]
+
+	#echo '00000000: eb' | xxd -r | dd of=target/$(DOS_TARGET)/$*/DPMILD32.EXE bs=1B count=1 seek=3511 conv=notrunc
+	#echo '00000000: eb' | xxd -r | dd of=target/$(DOS_TARGET)/$*/DPMILD32.EXE bs=1B count=1 seek=6957 conv=notrunc
+
