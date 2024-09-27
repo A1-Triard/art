@@ -120,7 +120,7 @@ linker="/home/<username>/.msvc-wine-rust/linker-scripts/linkx86.sh"
 linker="/home/<username>/.msvc-wine-rust/linker-scripts/linkx64.sh"
 ```
 
-Попробуем собрать наш проект под windows следующей командой:
+Попробуем собрать наш проект для windows следующей командой:
 
 ```sh
 $ cargo +nightly build --target i686-pc-windows-msvc --release
@@ -132,8 +132,10 @@ $ cargo +nightly build --target i686-pc-windows-msvc --release
 error[E0463]: can't find crate for `std`
   |
   = note: the `i686-pc-windows-msvc` target may not be installed
-  = help: consider downloading the target with `rustup target add i686-pc-windows-msvc`
-  = help: consider building the standard library from source with `cargo build -Zbuild-std`
+  = help: consider downloading the target
+    with `rustup target add i686-pc-windows-msvc`
+  = help: consider building the standard library from source
+    with `cargo build -Zbuild-std`
 ```
 
 К варианту со сборкой стандартной библиотеки мы ещё вернёмся,  а  пока
@@ -155,7 +157,7 @@ $ wineboot --init
 На выходе мы получаем `hellodos.exe`, который можем запустить:
 
 ```sh
-$ wine target/i686-pc-windows-msvc/release/hellodos.exe 
+$ wine target/i686-pc-windows-msvc/release/hellodos.exe
 Hello, world!
 ```
 
@@ -197,11 +199,15 @@ error: `#[panic_handler]` function required, but not found
 
 error: unwinding panics are not supported without std
   |
-  = help: using nightly cargo, use -Zbuild-std with panic="abort" to avoid unwinding
-  = note: since the core library is usually precompiled with panic="unwind",
-    rebuilding your crate with panic="abort" may not be enough to fix the problem
+  = help: using nightly cargo, use -Zbuild-std with panic="abort"
+    to avoid unwinding
+  = note: since the core library is usually precompiled
+    with panic="unwind",
+    rebuilding your crate with panic="abort" may not be enough
+    to fix the problem
 
-error: could not compile `hellodos` (bin "hellodos") due to 2 previous errors
+error: could not compile `hellodos` (bin "hellodos")
+due to 2 previous errors
 ```
 
 Нам сообщают что раскрутка паники не поддерживается в `no_std`  режиме
@@ -377,7 +383,7 @@ target/$(DOS_TARGET)/%/$(BIN).exe: \
     wine HXRT216/BIN/PESTUB.EXE -v -n -x -s \
         target/$(DOS_TARGET)/$*/$(BIN).exe HXRT216/BIN/DPMIST32.BIN
     touch target/$(DOS_TARGET)/$*/$(BIN).exe
-    
+   
 target/$(DOS_TARGET)/%/HDPMI32.EXE: HXRT216/BIN/HDPMI32.EXE
     mkdir -p target/$(DOS_TARGET)/$*
     cp -f HXRT216/BIN/HDPMI32.EXE target/$(DOS_TARGET)/$*/HDPMI32.EXE
@@ -434,7 +440,7 @@ Cargo.lock: Cargo.toml
 систему   сразу   --  лучшее  что  может  сделать  DOS-приложение  при
 возникновении ошибки не подлежащей исправлению.
 
-Цель второго             сборочного              этапа              --     
+Цель второго             сборочного              этапа              --    
 директория         `target/i386-pc-windows-hxrt/release`           или
 `target/i386-pc-windows-hxrt/debug`,  в   которой   должен   в   итоге
 оказаться  готовый  к  запуску  экзешник  с  необходимыми компонентами
@@ -465,22 +471,22 @@ C:\>
 программы.  Как её убрать мы расберёмся чуть позже,  а пока наконец-то
 займёмся кодированием под DOS.
 
-Для начала, для пробы пера, давайте заимпруим выход из нашей программы.
-Сейчас  мы  просто  возвращаем  управление  загрузчику,  но  вообще-то
-DOS-программы так не делают.  Вообще-то для завершения программы в DOS
-API предусмотрен специальный вызов.  Обращение к DOS API  производится
-через   прерывание   с   шестнадцатеричным  кодом  21.  Номер  функции
-передаётся в регистре `AH`.  Завершение программы и возврат в  DOS  --
-это  функция  номер 4C.  Код возврата передаётся в регистре `AL`.  Для
-вызова прерывания нам понадобится использовать  ассемблерную  вставку.
-Ассемблерные вставки  --  это  unsafe  код,  но  unsafe  тут не потому
-что можно ненароком угодить в undefined behaior, наоборот ассемблерная
-вставка  --  это  самый  твёрдо  defined behavior который только может
-быть:  всё что вы напишите окажется в конечном экзешнике.  Нет, unsafe
-тут   просто  чтобы  напомнить,  что  надо  быть  осторожным  и  можно
-что-нибудь сломать.  Например,  если загрузить  в  сегментный  регистр
-какой-нибудь  мусор,  то  ничего  хорошего  ждать не стоит.  Вот чтобы
-помнить,  что  есть  такие  способы  сломать  программу,  ассемблерные
+Для начала,   для   пробы  пера,  давайте  заимпруим  выход  из  нашей
+программы.  Сейчас мы  просто  возвращаем  управление  загрузчику,  но
+вообще-то  DOS-программы  так  не  делают.  Вообще-то  для  завершения
+программы в DOS API предусмотрен специальный вызов.  Обращение  к  DOS
+API производится через прерывание с шестнадцатеричным кодом 21.  Номер
+функции передаётся в регистре `AH`.  Завершение программы и возврат  в
+DOS -- это функция номер 4C.  Код возврата передаётся в регистре `AL`.
+Для  вызова  прерывания  нам  понадобится  использовать   ассемблерную
+вставку.  Ассемблерные  вставки  --  это unsafe код,  но unsafe тут не
+потому что можно  ненароком  угодить  в  undefined  behaior,  наоборот
+ассемблерная  вставка  --  это  самый  твёрдо defined behavior который
+только может быть:  всё что вы напишите окажется в конечном экзешнике.
+Нет,  unsafe  тут  просто чтобы напомнить,  что надо быть осторожным и
+можно  что-нибудь  сломать.  Например,  если  загрузить  в  сегментный
+регистр  какой-нибудь  мусор,  то ничего хорошего ждать не стоит.  Вот
+чтобы помнить,  что есть такие способы сломать программу, ассемблерные
 вставки требуют оформления как unsafe кода.
 
 Завернём требуемую ассемблерную вставку в  удобную  для  использования
@@ -501,7 +507,10 @@ fn int_21h_ah_4Ch_exit(al_exit_code: u8) {
 }
 ```
 
-Вы можете заметить, что я не стал использовать отдельно `ah` и `al` регистры, хотя вроде бы мог. Но именно что вроде бы. Поддержка этих регистров в настоящее время забагована и пользоваться ими поэтому не рекомендуется.
+Вы можете  заметить,  что  я не стал использовать отдельно `ah` и `al`
+регистры,  хотя вроде бы мог.  Но именно что вроде бы.  Поддержка этих
+регистров  в  настоящее время забагована и пользоваться ими поэтому не
+рекомендуется.
 
 Теперь мы можем правильно завершить нашу программу:
 
@@ -514,7 +523,13 @@ extern "stdcall" fn mainCRTStartup(_: *const PEB) -> u64 {
 }
 ```
 
-Но позвольте -- скажите вы -- мы ведь находимся в 32-битном защищённом режиме, а прерывание DOS должно быть выполнено в реальном 16-битном режиме. Вот тут и вступает в дело сервер `HDPMI.EXE`. Загружает его всё тот же загрузчик -- `DPMILD32.EXE`. И при загрузке сервер подменяет некоторые прерывания, в том числе и 21h, обёртками, которые 
+Но позвольте -- скажите вы -- мы ведь находимся в 32-битном защищённом
+режиме,  а прерывание DOS должно быть выполнено в  реальном  16-битном
+режиме.  Вот  тут и вступает в дело сервер `HDPMI.EXE`.  Загружает его
+всё  тот  же  загрузчик  --  `DPMILD32.EXE`.  И  при  загрузке  сервер
+подменяет некоторые прерывания,  в том числе и 21h, обёртками, которые
+выполняют переключение в реальный режим, вызывают настоящий обработчик
+реального режима, а после включают защищённый режим обратно.
 
 Для того,  чтобы печатать на экран мы воспользуемся  функцией  DOS  за
 номером  02.  Это  очень  простая  функция,  которая  выводит на экран
@@ -585,8 +600,10 @@ extern "stdcall" fn mainCRTStartup(_: *const PEB) -> u64 {
 }
 ```
 
-Вызов `unwrap`  тут совершенно уместен,  так как `DosWriter` не выдаёт
-ошибок.  Нам осталось одно,  последнее действие:  избавиться от ошибки,
+Вызов `unwrap` тут совершенно уместен,  так как `DosWriter` не  выдаёт
+ошибок.
+
+Нам осталось одно,  последнее действие: избавиться от ошибки,
 выдаваемой `DPMILD32`.
 
 #![feature(start)]
@@ -601,4 +618,5 @@ extern "C" fn rust_eh_personality() { }
 
 	#echo '00000000: eb' | xxd -r | dd of=target/$(DOS_TARGET)/$*/DPMILD32.EXE bs=1B count=1 seek=3511 conv=notrunc
 	#echo '00000000: eb' | xxd -r | dd of=target/$(DOS_TARGET)/$*/DPMILD32.EXE bs=1B count=1 seek=6957 conv=notrunc
+
 
