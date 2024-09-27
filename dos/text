@@ -603,20 +603,22 @@ extern "stdcall" fn mainCRTStartup(_: *const PEB) -> u64 {
 Вызов `unwrap` тут совершенно уместен,  так как `DosWriter` не  выдаёт
 ошибок.
 
-Нам осталось одно,  последнее действие: избавиться от ошибки,
-выдаваемой `DPMILD32`.
+Нам осталось одно,  последнее действие: избавиться от нежелательного сообщения,
+выдаваемого `DPMILD32`. Посмотрев в исходники и поковырявшись с дизассемблером, я
+нашёл простой способ пропатчить загрузчик чтобы он не выдавал означенного сообщения.
+Нужно заменить в двух местах опкод условного перехода 74h на безусловный переход EBh.
+Смещение первого места DB7h, второго -- 1B2Dh. Добавим соответствующие команды в `Makefile`:
 
-#![feature(start)]
+```
+target/$(DOS_TARGET)/%/DPMILD32.EXE: HXRT216/BIN/DPMILD32.EXE
+    mkdir -p target/$(DOS_TARGET)/$*
+    cp -f HXRT216/BIN/DPMILD32.EXE target/$(DOS_TARGET)/$*/DPMILD32.EXE
+    echo '00000000: eb' | xxd -r | dd of=target/$(DOS_TARGET)/$*/DPMILD32.EXE \
+        bs=1B count=1 seek=3511 conv=notrunc
+    echo '00000000: eb' | xxd -r | dd of=target/$(DOS_TARGET)/$*/DPMILD32.EXE \
+        bs=1B count=1 seek=6957 conv=notrunc
+```
 
-#![no_std]
+Как обычно, нужно установить необходимые программы, в данном случае -- `xxd`.
 
-
-#[no_mangle]
-extern "C" fn rust_eh_personality() { }
-
-#[start]
-
-	#echo '00000000: eb' | xxd -r | dd of=target/$(DOS_TARGET)/$*/DPMILD32.EXE bs=1B count=1 seek=3511 conv=notrunc
-	#echo '00000000: eb' | xxd -r | dd of=target/$(DOS_TARGET)/$*/DPMILD32.EXE bs=1B count=1 seek=6957 conv=notrunc
-
-
+И на этой велич
