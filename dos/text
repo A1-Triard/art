@@ -1,4 +1,10 @@
-Начинаем с установки rust. Даже если он есть системный из пакетов, его
+Давайте писать на Rust для DOS!
+===============================
+
+В этой  статье  я  покажу  как  получить работающую под DOS программу,
+написанную на Rust.
+
+Начинаем с установки Rust. Даже если он есть системный из пакетов, его
 недостаточно,  так  как  мы  будем  (вынужденно)  использовать nightly
 версию. Итак, идём на https://rustup.rs/, копируем предлагаемую строку
 и   запускаем  её  в  терминале.  Чтобы  команда  заработала  возможно
@@ -386,11 +392,13 @@ target/$(DOS_TARGET)/%/$(BIN).exe: \
    
 target/$(DOS_TARGET)/%/HDPMI32.EXE: HXRT216/BIN/HDPMI32.EXE
     mkdir -p target/$(DOS_TARGET)/$*
-    cp -f HXRT216/BIN/HDPMI32.EXE target/$(DOS_TARGET)/$*/HDPMI32.EXE
+    cp -f HXRT216/BIN/HDPMI32.EXE \
+        target/$(DOS_TARGET)/$*/HDPMI32.EXE
 
 target/$(DOS_TARGET)/%/DPMILD32.EXE: HXRT216/BIN/DPMILD32.EXE
     mkdir -p target/$(DOS_TARGET)/$*
-    cp -f HXRT216/BIN/DPMILD32.EXE target/$(DOS_TARGET)/$*/DPMILD32.EXE
+    cp -f HXRT216/BIN/DPMILD32.EXE \
+        target/$(DOS_TARGET)/$*/DPMILD32.EXE
 
 HXRT216/BIN/HDPMI32.EXE HXRT216/BIN/DPMILD32.EXE \
         HXRT216/BIN/PESTUB.EXE HXRT216/BIN/DPMIST32.BIN: HXRT216.zip
@@ -584,9 +592,9 @@ impl fmt::Write for DosWriter {
 }
 ```
 
-Хитрость, скрытая  в  трейте fmt::Write,  в том,  что он предоставляет
+Хитрость, скрытая в трейте `fmt::Write`,  в том,  что он предоставляет
 метод `write_fmt`,  используя который можно печатать не только строки,
-но  и  любой  объект,  реализующий трейт `Display`.  Но мы ограничемся
+но и любой объект,  реализующий трейт  `Display`.  Но  мы  ограничемся
 простой,  но гордой -- после всего что пришлось сделать, чтобы увидеть
 её на экране -- строкой:
 
@@ -603,22 +611,28 @@ extern "stdcall" fn mainCRTStartup(_: *const PEB) -> u64 {
 Вызов `unwrap` тут совершенно уместен,  так как `DosWriter` не  выдаёт
 ошибок.
 
-Нам осталось одно,  последнее действие: избавиться от нежелательного сообщения,
-выдаваемого `DPMILD32`. Посмотрев в исходники и поковырявшись с дизассемблером, я
-нашёл простой способ пропатчить загрузчик чтобы он не выдавал означенного сообщения.
-Нужно заменить в двух местах опкод условного перехода 74h на безусловный переход EBh.
-Смещение первого места DB7h, второго -- 1B2Dh. Добавим соответствующие команды в `Makefile`:
+Нам осталось  одно,  последнее действие:  избавиться от нежелательного
+сообщения,   выдаваемого   `DPMILD32`.   Посмотрев   в   исходники   и
+поковырявшись  с  дизассемблером,  я  нашёл  простой способ пропатчить
+загрузчик чтобы он не выдавал означенного сообщения.  Нужно заменить в
+двух  местах  опкод условного перехода 74h на безусловный переход EBh.
+Смещение первого места DB7h, второго -- 1B2Dh. Добавим соответствующие
+команды в `Makefile`:
 
 ```
 target/$(DOS_TARGET)/%/DPMILD32.EXE: HXRT216/BIN/DPMILD32.EXE
     mkdir -p target/$(DOS_TARGET)/$*
-    cp -f HXRT216/BIN/DPMILD32.EXE target/$(DOS_TARGET)/$*/DPMILD32.EXE
-    echo '00000000: eb' | xxd -r | dd of=target/$(DOS_TARGET)/$*/DPMILD32.EXE \
+    cp -f HXRT216/BIN/DPMILD32.EXE \
+        target/$(DOS_TARGET)/$*/DPMILD32.EXE
+    echo '00000000: eb' | xxd -r | \
+        dd of=target/$(DOS_TARGET)/$*/DPMILD32.EXE \
         bs=1B count=1 seek=3511 conv=notrunc
-    echo '00000000: eb' | xxd -r | dd of=target/$(DOS_TARGET)/$*/DPMILD32.EXE \
+    echo '00000000: eb' | xxd -r | dd \
+        of=target/$(DOS_TARGET)/$*/DPMILD32.EXE \
         bs=1B count=1 seek=6957 conv=notrunc
 ```
 
-Как обычно, нужно установить необходимые программы, в данном случае -- `xxd`.
+Как обычно, нужно установить необходимые программы, в данном случае --
+`xxd`.
 
-И на этой велич
+Вот и всё, мы получили работающую DOS-программу, написанную на Rust.
