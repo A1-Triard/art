@@ -1,0 +1,62 @@
+#!/bin/sh
+set -eu
+
+cd "$(dirname "$(realpath "$0")")"
+
+system="$(uname)"
+
+linux_sed_E() {
+    sed -E -i "$@"
+}
+
+bsd_sed_E() {
+    sed -E -i '' -e "$@"
+}
+
+case "$system" in
+Linux)
+    SED=linux_sed_E
+    ;;
+FreeBSD)
+    SED=bsd_sed_E
+    ;;
+*)
+    echo "Unknown system: ${system}."
+    exit 1
+esac
+
+# Markdown
+cp -f text text.md || exit 1
+$SED 's/ +$//' text.md || exit 1
+# shellcheck disable=SC2016
+$SED 's/```/_`_/g' text.md || exit 1
+$SED 's/``/«/g' text.md || exit 1
+# shellcheck disable=SC2016
+$SED 's/_`_/```/g' text.md || exit 1
+$SED "s/''/»/g" text.md || exit 1
+$SED 's/ ---/ —/g' text.md || exit 1
+$SED 's/x([0-9]+)`/XxX\1`/g' text.md || exit 1
+$SED 's/([0-9])x([0-9])/\1×\2/g' text.md || exit 1
+$SED 's/XxX([0-9]+)`/x\1`/g' text.md || exit 1
+$SED 's/\.\.\./…/g' text.md || exit 1
+
+# HTML
+cmark --nobreaks text.md > text.html || exit 1
+
+# Preview
+cat > view.html << "EOF"
+<!doctype html public "-//w3c//dtd html 4.01//en" "http://www.w3.org/tr/html4/strict.dtd">
+<html>
+<head>
+<title>dos</title>
+</head>
+<body>
+<link href="darkdown.css" rel="stylesheet"></link> 
+EOF
+
+cat text.html >> view.html
+
+cat >> view.html << "EOF"
+</body>
+</html>
+EOF
