@@ -631,3 +631,13 @@ target/$(DOS_TARGET)/%/DPMILD32.EXE: HXRT216/BIN/DPMILD32.EXE
 случае --- `xxd`.
 
 Вот и всё, мы получили работающую DOS-программу, написанную на Rust.
+А если кто-то решит написать что-то посложнее, вот список моих вспомогательных пакетов:
+можете юзать их или подсмотреть какие-то идеи и сделать свои лучше:
+- [`dos-cp`](https://crates.io/crates/dos-cp)/[`dos-cp-generator`](https://crates.io/crates/dos-cp-generator)
+  и основанные на них [`print-no-std`](https://crates.io/crates/print-no-std) и
+  [`panic-no-std`](https://crates.io/crates/panic-no-std),
+- [`pc-timer`](https://crates.io/crates/pc-timer) и основанный на нём
+  [`timer-no-std`](https://crates.io/crates/timer-no-std),
+- [`rlibc-ext`](https://crates.io/crates/rlibc-ext).
+
+Сделаем DOS снова великой!
