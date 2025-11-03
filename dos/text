@@ -181,12 +181,13 @@ Hello, world!
 Делается это так:
 
 ```rust
-#![feature(start)]
-
 #![no_std]
+#![no_main]
 
-#[start]
-fn main(_: isize, _: *const *const u8) -> isize {
+use core::ffi::{c_char, c_int};
+
+#[unsafe(no_mangle)]
+extern "C" fn main(_argc: c_int, _argv: *mut *mut c_char) -> c_int {
     0
 }
 ```
@@ -282,7 +283,6 @@ $ rustc +nightly -Z unstable-options \
 
 Открываем полученный файлик и правим:
 - `"cpu": "pentium4"` меняем на `"cpu": "i386"`,
-- `"is-builtin": true` меняем на `"is-builtin": false`,
 - `"llvm-target": "i686-pc-windows-msvc"`
   меняем на
   `"llvm-target": "i386-pc-windows-msvc"`,
@@ -290,8 +290,9 @@ $ rustc +nightly -Z unstable-options \
 - `"no-default-libraries": false`
   меняем на
   `"no-default-libraries": true`,
-- `"os": "windows"` меняем на `"os": "dos"`,
-- в `"pre-link-args"` дописываем везде аргумент `"/NODEFAULTLIB"`.
+- в `"pre-link-args"` дописываем везде аргумент `"/NODEFAULTLIB"`,
+- `"rustc-abi": "x86-sse2"` удаляем,
+- добавляем `"features": "-sse,-sse2"`.
 
 Также надо прописать линковщик для нового таргета в уже  знакомом  нам
 `~/.cargo/config.toml`:
@@ -305,22 +306,20 @@ linker="/home/main/.msvc-wine-rust/linker-scripts/linkx86.sh"
 сишная. Поэтому переходим на более низкоуровневый интерфейс:
 
 ```rust
-#![feature(extern_types)]
-
 #![no_std]
 #![no_main]
-#![windows_subsystem="windows"]
+#![windows_subsystem="console"]
 
 #[panic_handler]
 fn panic_handler(_info: &core::panic::PanicInfo) -> ! { loop { } }
 
 #[allow(non_snake_case)]
-#[no_mangle]
+#[unsafe(no_mangle)]
 extern "C" fn mainCRTStartup() {
 }
 ```
 
-Атрибут `#![windows_subsystem="windows"]`  нужен,  чтобы   сгенировать
+Атрибут `#![windows_subsystem="console"]`  нужен,  чтобы   сгенировать
 параметр `/ENTRY` при вызове линкера. Собирается это так:
 
 ```sh
@@ -425,8 +424,8 @@ Cargo.lock: Cargo.toml
 Несколько пояснений к данному `Makefile`.
 
 Сборка   состоит    из    двух    этапов.    Целью    первого    этапа
-является    директория    `target/i386-pc-windows-msvc/release`    или
-`target/i386-pc-windows-msvc/debug`. Этот этап подробно разобран выше.
+является    директория    `target/i386-pc-dos-msvc/release`    или
+`target/i386-pc-dos-msvc/debug`. Этот этап подробно разобран выше.
 Единственное    новшество    (не считая    `--verbose`   с   очевидным
 назначением)       ---       это        дополнительный        аргумент
 `-Z build-std-features=panic_immediate_abort` в релизе. Так же,  как и
@@ -435,7 +434,7 @@ Cargo.lock: Cargo.toml
 `panic_handler`,  а немедленно убивает приложение,  вставляя  в  поток
 выполнения   некорректную   процессорную   инструкцию.   В   случае  с
 приложением DOS вместе с приложением убъётся и система, но это хорошо:
-дело в том,  что в любом более-менее реальном приложении переопредлены
+дело в том,  что в любом более-менее реальном приложении переопределены
 обработчики прерываний.  Если  выйти  в  DOS,  не  вернув  стандартные
 обработчики  на  место --- а вернуть их при панике некому,  то система
 окажется в нестабильном состоянии и скорее  всего  всё  равно  упадёт,
@@ -445,8 +444,8 @@ Cargo.lock: Cargo.toml
 возникновении ошибки не подлежащей исправлению.
 
 Цель второго             сборочного              этапа             ---    
-директория         `target/i386-pc-windows-hxrt/release`           или
-`target/i386-pc-windows-hxrt/debug`,  в   которой   должен   в   итоге
+директория         `target/i386-pc-dos-hxrt/release`           или
+`target/i386-pc-dos-hxrt/debug`,  в   которой   должен   в   итоге
 оказаться  готовый  к  запуску  экзешник  с  необходимыми компонентами
 расширителя  HX.  Необходимых  компонентов  в  нашем  случае  два  ---
 загрузчик  `DPMILD32.EXE`  и  сервер  `HDPMI32.EXE`.  О роли сервера я
@@ -465,15 +464,9 @@ $ make dosrunr
 
 ```
 C:\HELLODOS.EXE
-DPMILD32: Module=hxguihlp.dll
-DPMILD32: File not found error
 
 C:\>
 ```
-
-Ошибка, которую  выдаёт  `DPMILD32`  некритична и не мешает исполнению
-программы.  Как её убрать мы расберёмся чуть позже,  а пока наконец-то
-займёмся кодированием под DOS.
 
 Для начала,   для   пробы  пера,  давайте  заимпруим  выход  из  нашей
 программы.  Сейчас мы  просто  возвращаем  управление  загрузчику,  но
@@ -484,7 +477,7 @@ API производится через прерывание с шестнадц
 DOS --- это функция номер 4C. Код возврата передаётся в регистре `AL`.
 Для  вызова  прерывания  нам  понадобится  использовать   ассемблерную
 вставку.  Ассемблерные  вставки  ---  это unsafe код, но unsafe тут не
-потому что можно  ненароком  угодить  в  undefined  behaior,  наоборот
+потому что можно  ненароком  угодить  в  undefined  behavior,  наоборот
 ассемблерная  вставка  ---  это  самый твёрдо defined behavior который
 только может быть:  всё что вы напишите окажется в конечном экзешнике.
 Нет,  unsafe  тут  просто чтобы напомнить,  что надо быть осторожным и
@@ -505,7 +498,7 @@ fn int_21h_ah_4Ch_exit(al_exit_code: u8) {
     unsafe {
         asm!(
             "int 0x21",
-            in("ax") 0x4C00u16 | al_exit_code as u16,
+            in("ax") 0x4C00u16 | u16::from(al_exit_code),
         );
     }
 }
@@ -520,7 +513,7 @@ fn int_21h_ah_4Ch_exit(al_exit_code: u8) {
 
 ```rust
 #[allow(non_snake_case)]
-#[no_mangle]
+#[unsafe(no_mangle)]
 extern "C" fn mainCRTStartup() {
     int_21h_ah_4Ch_exit(0);
 }
@@ -596,7 +589,7 @@ impl fmt::Write for DosWriter {
 
 ```rust
 #[allow(non_snake_case)]
-#[no_mangle]
+#[unsafe(no_mangle)]
 extern "C" fn mainCRTStartup() {
     writeln!(DosWriter, "Hello, DOS!").unwrap();
     int_21h_ah_4Ch_exit(0);
@@ -606,38 +599,6 @@ extern "C" fn mainCRTStartup() {
 Вызов `unwrap` тут совершенно уместен,  так как `DosWriter` не  выдаёт
 ошибок.
 
-Нам осталось  одно,  последнее действие:  избавиться от нежелательного
-сообщения,   выдаваемого   `DPMILD32`.   Посмотрев   в   исходники   и
-поковырявшись  с  дизассемблером,  я  нашёл  простой способ пропатчить
-загрузчик чтобы он не выдавал означенного сообщения.  Нужно заменить в
-двух  местах  опкод условного перехода 74h на безусловный переход EBh.
-Смещение первого    места    DB7h,    второго   ---   1B2Dh.   Добавим
-соответствующие команды в `Makefile`:
-
-```
-target/$(DOS_TARGET)/%/DPMILD32.EXE: HXRT216/BIN/DPMILD32.EXE
-    mkdir -p target/$(DOS_TARGET)/$*
-    cp -f HXRT216/BIN/DPMILD32.EXE \
-        target/$(DOS_TARGET)/$*/DPMILD32.EXE
-    echo '00000000: eb' | xxd -r | \
-        dd of=target/$(DOS_TARGET)/$*/DPMILD32.EXE \
-        bs=1B count=1 seek=3511 conv=notrunc
-    echo '00000000: eb' | xxd -r | dd \
-        of=target/$(DOS_TARGET)/$*/DPMILD32.EXE \
-        bs=1B count=1 seek=6957 conv=notrunc
-```
-
-Как  обычно,   нужно  установить  необходимые  программы,   в   данном
-случае --- `xxd`.
-
 Вот и всё, мы получили работающую DOS-программу, написанную на Rust.
-А если кто-то решит написать что-то посложнее, вот список моих вспомогательных пакетов:
-можете юзать их или подсмотреть какие-то идеи и сделать свои лучше:
-- [`dos-cp`](https://crates.io/crates/dos-cp)/[`dos-cp-generator`](https://crates.io/crates/dos-cp-generator)
-  и основанные на них [`print-no-std`](https://crates.io/crates/print-no-std) и
-  [`panic-no-std`](https://crates.io/crates/panic-no-std),
-- [`pc-timer`](https://crates.io/crates/pc-timer) и основанный на нём
-  [`timer-no-std`](https://crates.io/crates/timer-no-std),
-- [`rlibc-ext`](https://crates.io/crates/rlibc-ext).
 
 Сделаем DOS снова великой!
